@@ -1,0 +1,18 @@
+package ptit.tmdt.lop6nhom7.baodientu.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.time.LocalDateTime;
+
+@Getter
+@AllArgsConstructor
+public class ErrorResponse {
+  private int status;
+  private String message;
+  private LocalDateTime timestamp;
+  
+  public static ErrorResponse of(int status, String message) {
+    return new ErrorResponse(status, message, LocalDateTime.now());
+  }
+}

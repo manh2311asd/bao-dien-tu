@@ -1,0 +1,1 @@
+// Deleted vietlott scraper service

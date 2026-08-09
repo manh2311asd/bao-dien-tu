@@ -1,0 +1,82 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  application:
+    name: baodientu
+
+  jpa:
+    hibernate:
+      ddl-auto: ${TMDT_DDL_AUTO:update}
+  datasource:
+    url: ${TMDT_DB_URL:jdbc:mysql://localhost:3306/pthttmdt?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh} # update to ssl later to secure
+    username: ${TMDT_DB_USERNAME:root}
+    password: ${TMDT_DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${TMDT_MAIL_USERNAME:}
+    password: ${TMDT_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+server:
+  port: ${PORT:8082}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml
+    min-response-size: 1024
+
+  
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+app:
+  jwt:
+    secret: ${TMDT_JWT_SECRET}
+    expiration: ${TMDT_JWT_EXPIRATION_MS:2592000000}
+  notifications:
+    hot-view-threshold: ${TMDT_HOT_VIEW_THRESHOLD:1000}
+
+vnpay:
+  tmn-code: ${VNPAY_TMN_CODE:}
+  hash-secret: ${VNPAY_HASH_SECRET:}
+  url: ${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  return-url: ${VNPAY_RETURN_URL:http://localhost:8082/api/transactions/vnpay-return}
+  ipn-url: ${VNPAY_IPN_URL:http://localhost:8082/api/transactions/vnpay-ipn}
+  version: "2.1.0"
+  command: pay
+  order-type: other
+  curr-code: VND
+  locale: vn
+ 
+news:
+  rss:
+    enabled: true
+    refresh-delay-ms: 900000
+    sources:
+      - name: VnExpress
+        url: https://vnexpress.net/rss/tin-moi-nhat.rss
+        defaultCategory: Tin mới nhất
+      - name: VnExpress
+        url: https://vnexpress.net/rss/so-hoa.rss
+        defaultCategory: Công nghệ
+      - name: VnExpress
+        url: https://vnexpress.net/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
