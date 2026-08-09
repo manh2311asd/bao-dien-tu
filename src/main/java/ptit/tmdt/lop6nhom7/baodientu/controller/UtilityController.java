@@ -20,14 +20,12 @@ import ptit.tmdt.lop6nhom7.baodientu.dto.utility.FootballMatchDto;
 import ptit.tmdt.lop6nhom7.baodientu.dto.utility.FootballStandingDto;
 import ptit.tmdt.lop6nhom7.baodientu.dto.utility.UtilityDataEnvelope;
 import ptit.tmdt.lop6nhom7.baodientu.service.ExchangeRateService;
-import ptit.tmdt.lop6nhom7.baodientu.service.FootballDataService;
 import ptit.tmdt.lop6nhom7.baodientu.service.OptionalUtilityProviderService;
 
 @RestController
 @RequestMapping("/api/utilities")
 @RequiredArgsConstructor
 public class UtilityController {
-    private final FootballDataService footballDataService;
     private final ExchangeRateService exchangeRateService;
     private final OptionalUtilityProviderService optionalProviderService;
 
@@ -41,14 +39,14 @@ public class UtilityController {
                     HttpStatus.BAD_REQUEST,
                     "Khoảng ngày Bóng đá phải từ 0 đến 31 ngày");
         }
-        return footballDataService.getMatches(dateFrom, dateTo, competition);
+        return new UtilityDataEnvelope<>(List.of());
     }
 
     @GetMapping("/football/standings")
     public UtilityDataEnvelope<List<FootballStandingDto>> footballStandings(
             @RequestParam String competition,
             @RequestParam(required = false) Integer season) {
-        return footballDataService.getStandings(competition, season);
+        return new UtilityDataEnvelope<>(List.of());
     }
 
     @GetMapping("/finance/exchange-rates")
