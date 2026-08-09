@@ -14,6 +14,12 @@ spring:
     username: ${TMDT_DB_USERNAME:root}
     password: ${TMDT_DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
   mail:
     host: smtp.gmail.com
     port: 587
@@ -31,6 +37,10 @@ spring:
 
 server:
   port: ${PORT:8082}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml
+    min-response-size: 1024
 
   
 logging:
@@ -69,4 +79,40 @@ news:
         defaultCategory: Công nghệ
       - name: VnExpress
         url: https://vnexpress.net/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/tin-moi-nhat.rss
+        defaultCategory: Tin mới nhất
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/cong-nghe.rss
+        defaultCategory: Công nghệ
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/home.rss
+        defaultCategory: Tin mới nhất
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/cong-nghe-thong-tin.rss
+        defaultCategory: Công nghệ
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/kinh-te.rss
+        defaultCategory: Kinh doanh
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/tin-moi-nhat.rss
+        defaultCategory: Tin mới nhất
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/suc-manh-so.rss
+        defaultCategory: Công nghệ
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/home.rss
+        defaultCategory: Tin mới nhất
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/cong-nghe.rss
+        defaultCategory: Công nghệ
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/kinh-doanh.rss
         defaultCategory: Kinh doanh
