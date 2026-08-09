@@ -39,14 +39,14 @@ public class UtilityController {
                     HttpStatus.BAD_REQUEST,
                     "Khoảng ngày Bóng đá phải từ 0 đến 31 ngày");
         }
-        return new UtilityDataEnvelope<>(List.of());
+        return new UtilityDataEnvelope<>(List.of(), "Deprecated", "");
     }
 
     @GetMapping("/football/standings")
     public UtilityDataEnvelope<List<FootballStandingDto>> footballStandings(
             @RequestParam String competition,
             @RequestParam(required = false) Integer season) {
-        return new UtilityDataEnvelope<>(List.of());
+        return new UtilityDataEnvelope<>(List.of(), "Deprecated", "");
     }
 
     @GetMapping("/finance/exchange-rates")
