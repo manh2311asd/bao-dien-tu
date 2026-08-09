@@ -1,1 +1,1 @@
-// Deleted vietlott scraper service
+// Deleted VietlottScraperService.java because it is deprecated

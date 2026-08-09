@@ -80,3 +80,39 @@ news:
       - name: VnExpress
         url: https://vnexpress.net/rss/kinh-doanh.rss
         defaultCategory: Kinh doanh
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/tin-moi-nhat.rss
+        defaultCategory: Tin mới nhất
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/cong-nghe.rss
+        defaultCategory: Công nghệ
+      - name: Tuổi Trẻ
+        url: https://tuoitre.vn/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/home.rss
+        defaultCategory: Tin mới nhất
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/cong-nghe-thong-tin.rss
+        defaultCategory: Công nghệ
+      - name: Thanh Niên
+        url: https://thanhnien.vn/rss/kinh-te.rss
+        defaultCategory: Kinh doanh
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/tin-moi-nhat.rss
+        defaultCategory: Tin mới nhất
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/suc-manh-so.rss
+        defaultCategory: Công nghệ
+      - name: Dân Trí
+        url: https://dantri.com.vn/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/home.rss
+        defaultCategory: Tin mới nhất
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/cong-nghe.rss
+        defaultCategory: Công nghệ
+      - name: VietnamNet
+        url: https://vietnamnet.vn/rss/kinh-doanh.rss
+        defaultCategory: Kinh doanh

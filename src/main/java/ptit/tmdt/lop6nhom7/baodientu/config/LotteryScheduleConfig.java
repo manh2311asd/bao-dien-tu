@@ -1,1 +1,1 @@
-// Deleted lottery configuration
+// Deleted LotteryScheduleConfig.java because it is deprecated
