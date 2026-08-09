@@ -36,7 +36,7 @@ public class ArticleCommentService {
   @Transactional
   public ArticleCommentResponse createComment(Integer articleId, CreateArticleCommentRequest request) {
     Article article = findPublishedArticle(articleId);
-    User currentUser = vipAccessService.requireCurrentVipUser();
+    User currentUser = vipAccessService.requireCurrentUser();
 
     Comment comment = new Comment();
     comment.setArticle(article);

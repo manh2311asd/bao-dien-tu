@@ -30,6 +30,8 @@ import ptit.tmdt.lop6nhom7.baodientu.entity.User;
 import ptit.tmdt.lop6nhom7.baodientu.enums.ArticleStatus;
 import ptit.tmdt.lop6nhom7.baodientu.enums.ArticleType;
 import ptit.tmdt.lop6nhom7.baodientu.enums.UserRole;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserStatus;
+import ptit.tmdt.lop6nhom7.baodientu.exception.BadRequestException;
 import ptit.tmdt.lop6nhom7.baodientu.exception.ConflictException;
 import ptit.tmdt.lop6nhom7.baodientu.exception.ForbiddenException;
 import ptit.tmdt.lop6nhom7.baodientu.repository.ArticleRepo;
@@ -37,6 +39,7 @@ import ptit.tmdt.lop6nhom7.baodientu.repository.CategoryRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 import ptit.tmdt.lop6nhom7.baodientu.security.JwtService;
 import ptit.tmdt.lop6nhom7.baodientu.service.AuthService;
+import ptit.tmdt.lop6nhom7.baodientu.service.AdminUserService;
 import ptit.tmdt.lop6nhom7.baodientu.service.NewsNotificationService;
 import ptit.tmdt.lop6nhom7.baodientu.service.StaffArticleService;
 
@@ -52,6 +55,7 @@ class StaffSecurityWorkflowTests {
   @Mock private JwtService jwtService;
   @Mock private ObjectMapper objectMapper;
   @InjectMocks private AuthService authService;
+  @InjectMocks private AdminUserService adminUserService;
 
   @AfterEach
   void clearSecurityContext() {
@@ -100,6 +104,25 @@ class StaffSecurityWorkflowTests {
   }
 
   @Test
+  void authorCannotOpenAnotherAuthorsDraft() {
+    User currentAuthor = author(10);
+    User anotherAuthor = author(11);
+    Article article = new Article();
+    article.setId(52);
+    article.setAuthor(anotherAuthor);
+    article.setCategory(category(3));
+    article.setStatus(ArticleStatus.DRAFT);
+    authenticateAs(currentAuthor.getId());
+    when(userRepo.findById(currentAuthor.getId())).thenReturn(Optional.of(currentAuthor));
+    when(articleRepo.findById(article.getId())).thenReturn(Optional.of(article));
+
+    assertThrows(
+        ForbiddenException.class,
+        () -> staffArticleService.getArticleDetail(article.getId())
+    );
+  }
+
+  @Test
   void publicRegistrationCannotCreateAuthorAccount() {
     RegisterReq request = new RegisterReq();
     request.setEmail("author@example.com");
@@ -109,6 +132,32 @@ class StaffSecurityWorkflowTests {
     request.setRole("AUTHOR");
 
     assertThrows(ConflictException.class, () -> authService.register(request));
+  }
+
+  @Test
+  void publicRegistrationCannotCreateVipAccount() {
+    RegisterReq request = new RegisterReq();
+    request.setEmail("vip@example.com");
+    request.setName("Thanh vien thu nghiem");
+    request.setPassword("password123");
+    request.setConfirmation("password123");
+    request.setRole("VIP");
+
+    assertThrows(ConflictException.class, () -> authService.register(request));
+  }
+
+  @Test
+  void adminCannotDemoteOrLockOwnAccount() {
+    authenticateAs(10);
+
+    assertThrows(
+        BadRequestException.class,
+        () -> adminUserService.updateRole(10, UserRole.MEMBER)
+    );
+    assertThrows(
+        BadRequestException.class,
+        () -> adminUserService.updateStatus(10, UserStatus.LOCKED)
+    );
   }
 
   private void authenticateAs(Integer userId) {

@@ -26,6 +26,7 @@ import ptit.tmdt.lop6nhom7.baodientu.dto.ArticleTranslationRequest;
 import ptit.tmdt.lop6nhom7.baodientu.dto.ArticleTranslationResponse;
 import ptit.tmdt.lop6nhom7.baodientu.service.AnonymousReadMeterService;
 import ptit.tmdt.lop6nhom7.baodientu.service.ArticleService;
+import ptit.tmdt.lop6nhom7.baodientu.service.VipAccessService;
 
 
 @RestController
@@ -38,6 +39,7 @@ public class ArticleController {
 
     private final ArticleService articleService;
     private final AnonymousReadMeterService anonymousReadMeterService;
+    private final VipAccessService vipAccessService;
 
     @GetMapping("/{articleId}/preview")
     public ResponseEntity<ArticlePreviewResponse> getVipArticlePreview(@PathVariable int articleId) {
@@ -94,8 +96,9 @@ public class ArticleController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('VIP', 'ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ArticleDTO> getAIArticleSummary(@RequestParam("articleId") int articleId) throws Exception {
+        vipAccessService.requireCurrentVipOrAdmin();
         return ResponseEntity.ok(articleService.summarizeArticle(articleId));
     }
 

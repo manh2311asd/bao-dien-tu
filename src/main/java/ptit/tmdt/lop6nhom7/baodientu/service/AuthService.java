@@ -90,15 +90,15 @@ public class AuthService {
   }
 
   private UserRole parseSelfRegisterRole(String roleStr) {
-    if (roleStr == null) {
+    if (roleStr == null || roleStr.isBlank()) {
       return UserRole.MEMBER;
     }
     try {
       UserRole parsed = UserRole.valueOf(roleStr.toUpperCase().trim());
-      if (parsed == UserRole.AUTHOR || parsed == UserRole.CENSOR || parsed == UserRole.ADMIN) {
-        throw new ConflictException("Không được phép tự đăng ký vai trò quản trị/tác giả/kiểm duyệt");
+      if (parsed != UserRole.MEMBER) {
+        throw new ConflictException("Tài khoản đăng ký mới chỉ được nhận vai trò thành viên");
       }
-      return parsed;
+      return UserRole.MEMBER;
     } catch (IllegalArgumentException ex) {
       return UserRole.MEMBER;
     }

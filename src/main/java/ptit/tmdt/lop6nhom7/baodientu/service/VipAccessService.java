@@ -5,6 +5,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserRole;
 import ptit.tmdt.lop6nhom7.baodientu.enums.UserStatus;
 import ptit.tmdt.lop6nhom7.baodientu.exception.ForbiddenException;
 import ptit.tmdt.lop6nhom7.baodientu.exception.UnauthorizedException;
@@ -24,14 +25,26 @@ public class VipAccessService {
     }
 
     Integer userId = resolveUserId(authentication.getName());
-    return userRepo.findById(userId)
+    User user = userRepo.findById(userId)
         .orElseThrow(() -> new UnauthorizedException("Khong tim thay thong tin nguoi dung"));
+    if (user.getStatus() == UserStatus.LOCKED) {
+      throw new ForbiddenException("Nguoi dung bi khoa tai khoan");
+    }
+    return user;
   }
 
   public User requireCurrentVipUser() {
     User user = requireCurrentUser();
-    if (user.getStatus() == UserStatus.LOCKED) {
-      throw new ForbiddenException("Nguoi dung bi khoa tai khoan");
+    if (user.getVipExpiryDate() == null || !user.getVipExpiryDate().isAfter(Instant.now())) {
+      throw new ForbiddenException("Tinh nang nay chi danh cho thanh vien VIP con hieu luc");
+    }
+    return user;
+  }
+
+  public User requireCurrentVipOrAdmin() {
+    User user = requireCurrentUser();
+    if (user.getRole() == UserRole.ADMIN) {
+      return user;
     }
     if (user.getVipExpiryDate() == null || !user.getVipExpiryDate().isAfter(Instant.now())) {
       throw new ForbiddenException("Tinh nang nay chi danh cho thanh vien VIP con hieu luc");

@@ -14,11 +14,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import ptit.tmdt.lop6nhom7.baodientu.entity.User;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserStatus;
+import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
+    private final UserRepo userRepo;
 
     @Override
     protected void doFilterInternal(
@@ -38,12 +42,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
         // authenticate
-        String role = jwtService.extractRole(token);
         Integer userId = jwtService.extractUserId(token);
+        User user = userRepo.findById(userId).orElse(null);
+        if (user == null || user.getStatus() == UserStatus.LOCKED || user.getRole() == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 userId, // principal — available as getPrincipal() in controllers
                 null, // credentials — not needed after auth
-                List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
         SecurityContextHolder.getContext().setAuthentication(authentication);
         filterChain.doFilter(request, response);
     }
