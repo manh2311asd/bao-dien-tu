@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -31,6 +32,9 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
   private final ObjectMapper objectMapper;
+
+  @Value("${app.auth.allow-author-self-registration:false}")
+  private boolean allowAuthorSelfRegistration;
   
   public @Nullable LoginRes login(@Valid LoginReq request) {
     String email = request.getEmail().trim();
@@ -95,10 +99,13 @@ public class AuthService {
     }
     try {
       UserRole parsed = UserRole.valueOf(roleStr.toUpperCase().trim());
-      if (parsed != UserRole.MEMBER) {
-        throw new ConflictException("Tài khoản đăng ký mới chỉ được nhận vai trò thành viên");
+      if (parsed == UserRole.MEMBER) {
+        return UserRole.MEMBER;
       }
-      return UserRole.MEMBER;
+      if (parsed == UserRole.AUTHOR && allowAuthorSelfRegistration) {
+        return UserRole.AUTHOR;
+      }
+      throw new ConflictException("Vai trò đăng ký không được phép");
     } catch (IllegalArgumentException ex) {
       return UserRole.MEMBER;
     }

@@ -51,6 +51,9 @@ app:
   jwt:
     secret: ${TMDT_JWT_SECRET}
     expiration: ${TMDT_JWT_EXPIRATION_MS:2592000000}
+  auth:
+    # Demo: web may register MEMBER or AUTHOR. The mobile app always sends MEMBER.
+    allow-author-self-registration: ${TMDT_ALLOW_AUTHOR_SELF_REGISTRATION:true}
   notifications:
     hot-view-threshold: ${TMDT_HOT_VIEW_THRESHOLD:1000}
 

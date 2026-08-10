@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 import ptit.tmdt.lop6nhom7.baodientu.dto.ArticleDTO;
 import ptit.tmdt.lop6nhom7.baodientu.dto.ArticleUpdateRequest;
 import ptit.tmdt.lop6nhom7.baodientu.dto.RegisterReq;
@@ -123,7 +124,7 @@ class StaffSecurityWorkflowTests {
   }
 
   @Test
-  void publicRegistrationCannotCreateAuthorAccount() {
+  void publicRegistrationCannotCreateAuthorWhenDemoModeIsDisabled() {
     RegisterReq request = new RegisterReq();
     request.setEmail("author@example.com");
     request.setName("Tác giả thử nghiệm");
@@ -132,6 +133,44 @@ class StaffSecurityWorkflowTests {
     request.setRole("AUTHOR");
 
     assertThrows(ConflictException.class, () -> authService.register(request));
+  }
+
+  @Test
+  void webRegistrationCanCreateAuthorWhenDemoModeIsEnabled() {
+    RegisterReq request = new RegisterReq();
+    request.setEmail("author@example.com");
+    request.setName("Tác giả thử nghiệm");
+    request.setPassword("password123");
+    request.setConfirmation("password123");
+    request.setRole("AUTHOR");
+    ReflectionTestUtils.setField(authService, "allowAuthorSelfRegistration", true);
+    when(userRepo.existsByEmail("author@example.com")).thenReturn(false);
+    when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
+
+    authService.register(request);
+
+    ArgumentCaptor<User> savedUser = ArgumentCaptor.forClass(User.class);
+    verify(userRepo).save(savedUser.capture());
+    assertEquals(UserRole.AUTHOR, savedUser.getValue().getRole());
+    assertEquals(UserStatus.ACTIVE, savedUser.getValue().getStatus());
+  }
+
+  @Test
+  void mobileRegistrationWithoutPrivilegedRoleCreatesMember() {
+    RegisterReq request = new RegisterReq();
+    request.setEmail("reader@example.com");
+    request.setName("Độc giả thử nghiệm");
+    request.setPassword("password123");
+    request.setConfirmation("password123");
+    request.setRole("MEMBER");
+    when(userRepo.existsByEmail("reader@example.com")).thenReturn(false);
+    when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
+
+    authService.register(request);
+
+    ArgumentCaptor<User> savedUser = ArgumentCaptor.forClass(User.class);
+    verify(userRepo).save(savedUser.capture());
+    assertEquals(UserRole.MEMBER, savedUser.getValue().getRole());
   }
 
   @Test

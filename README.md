@@ -63,5 +63,18 @@ $env:TMDT_DB_PASSWORD="your-azure-mysql-password"
 Backend chạy đúng khi terminal hiện:
 
 ```text
-Tomcat started on port 8080
+Tomcat started on port 8082
+```
+
+### Phân quyền khi đăng ký bản demo
+
+- Web gửi `role=MEMBER` hoặc `role=AUTHOR`; backend cấp đúng vai trò người dùng chọn.
+- App chỉ gửi `role=MEMBER`, vì vậy tài khoản đăng ký trên app luôn là người đọc.
+- Khi đăng nhập trên web hoặc app, role được đọc lại từ backend/JWT để mở đúng khu vực chức năng.
+- Không thể tự đăng ký các quyền `ADMIN`, `CENSOR` hoặc `VIP`.
+
+Chế độ tự đăng ký tác giả đang bật mặc định cho bản demo. Có thể tắt bằng:
+
+```powershell
+$env:TMDT_ALLOW_AUTHOR_SELF_REGISTRATION="false"
 ```
