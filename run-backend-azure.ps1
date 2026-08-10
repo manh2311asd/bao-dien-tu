@@ -54,6 +54,10 @@ if (-not $env:GEMINI_API_KEY) {
   $env:GEMINI_API_KEY = 'dummy-local-key'
 }
 
+if (-not $env:TMDT_DEMO_CARD_PAYMENT_ENABLED) {
+  $env:TMDT_DEMO_CARD_PAYMENT_ENABLED = 'false'
+}
+
 Write-Host 'Starting backend with Azure MySQL configuration...'
 Write-Host "Database URL: $env:TMDT_DB_URL"
 Write-Host "Database user: $env:TMDT_DB_USERNAME"

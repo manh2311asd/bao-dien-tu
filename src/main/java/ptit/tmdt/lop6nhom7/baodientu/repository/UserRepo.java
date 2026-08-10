@@ -3,6 +3,9 @@ package ptit.tmdt.lop6nhom7.baodientu.repository;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
@@ -13,11 +16,17 @@ import ptit.tmdt.lop6nhom7.baodientu.enums.UserStatus;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
+
 @Repository
 public interface UserRepo extends JpaRepository<User, Integer> {
   Optional<User> findByEmail(@NotBlank(message = "Email khong duoc bo trong") @Email String email);
   
   Optional<User> findById(Long id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select u from User u where u.id = :id")
+  Optional<User> findByIdForUpdate(@Param("id") Integer id);
   boolean existsByEmail(@NotBlank(message = "Email khong duoc bo trong") @Email String email);
   boolean existsByEmailIgnoreCaseAndIdNot(String email, Integer id);
   List<User> findByRoleOrderByFullNameAsc(UserRole role);

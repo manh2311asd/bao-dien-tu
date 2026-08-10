@@ -1,11 +1,14 @@
 package ptit.tmdt.lop6nhom7.baodientu.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ptit.tmdt.lop6nhom7.baodientu.dto.CreateTransactionRequest;
+import ptit.tmdt.lop6nhom7.baodientu.dto.ConfirmDemoCardPaymentRequest;
+import ptit.tmdt.lop6nhom7.baodientu.dto.DemoCardPaymentResponse;
 import ptit.tmdt.lop6nhom7.baodientu.dto.TransactionResponse;
 import ptit.tmdt.lop6nhom7.baodientu.dto.VNPayIpnResponse;
 import ptit.tmdt.lop6nhom7.baodientu.dto.VNPayPaymentResponse;
@@ -56,7 +59,7 @@ public class TransactionController {
      */
     @PostMapping("/create")
     public ResponseEntity<VNPayPaymentResponse> createPayment(
-            @RequestBody CreateTransactionRequest request,
+            @Valid @RequestBody CreateTransactionRequest request,
             HttpServletRequest httpRequest) {
         
         log.info("Payment creation requested for packageId={}", request.getPackageId());
@@ -67,6 +70,32 @@ public class TransactionController {
         );
         
         return ResponseEntity.ok(new VNPayPaymentResponse(paymentUrl));
+    }
+
+    /**
+     * Creates a pending transaction for the built-in Visa demo checkout.
+     * No card number, expiry or CVV is accepted by this endpoint.
+     */
+    @PostMapping("/demo-card/create")
+    public ResponseEntity<DemoCardPaymentResponse> createDemoCardPayment(
+            @Valid @RequestBody CreateTransactionRequest request) {
+        return ResponseEntity.ok(
+                transactionService.createDemoCardPayment(request.getPackageId())
+        );
+    }
+
+    /**
+     * Confirms the one-time demo checkout and activates VIP exactly once.
+     */
+    @PostMapping("/demo-card/confirm")
+    public ResponseEntity<DemoCardPaymentResponse> confirmDemoCardPayment(
+            @Valid @RequestBody ConfirmDemoCardPaymentRequest request) {
+        return ResponseEntity.ok(
+                transactionService.confirmDemoCardPayment(
+                        request.getTransactionId(),
+                        request.getPaymentCode()
+                )
+        );
     }
 
     /**

@@ -56,6 +56,10 @@ app:
     allow-author-self-registration: ${TMDT_ALLOW_AUTHOR_SELF_REGISTRATION:true}
   notifications:
     hot-view-threshold: ${TMDT_HOT_VIEW_THRESHOLD:1000}
+  payments:
+    demo-card:
+      # Demo only. Set false in production; no real card data is accepted or stored.
+      enabled: ${TMDT_DEMO_CARD_PAYMENT_ENABLED:false}
 
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:}

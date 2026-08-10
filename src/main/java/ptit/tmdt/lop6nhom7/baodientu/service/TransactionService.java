@@ -8,21 +8,29 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ptit.tmdt.lop6nhom7.baodientu.dto.TransactionResponse;
+import ptit.tmdt.lop6nhom7.baodientu.dto.DemoCardPaymentResponse;
+import ptit.tmdt.lop6nhom7.baodientu.config.DemoCardPaymentConfig;
 import ptit.tmdt.lop6nhom7.baodientu.dto.VNPayIpnResponse;
 import ptit.tmdt.lop6nhom7.baodientu.entity.Transaction;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
 import ptit.tmdt.lop6nhom7.baodientu.entity.VipPackage;
 import ptit.tmdt.lop6nhom7.baodientu.enums.TransactionStatus;
+import ptit.tmdt.lop6nhom7.baodientu.exception.BadRequestException;
+import ptit.tmdt.lop6nhom7.baodientu.exception.ConflictException;
+import ptit.tmdt.lop6nhom7.baodientu.exception.ForbiddenException;
+import ptit.tmdt.lop6nhom7.baodientu.exception.NotFoundException;
 import ptit.tmdt.lop6nhom7.baodientu.repository.TransactionRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.VipPackageRepo;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +50,7 @@ public class TransactionService {
     private final VipPackageRepo vipPackageRepository;
     private final UserRepo userRepository;
     private final VNPayService vnPayService;
+    private final DemoCardPaymentConfig demoCardPaymentConfig;
 
     /**
      * Step 1: Initiate payment - Create transaction and generate VNPay URL.
@@ -54,17 +63,14 @@ public class TransactionService {
         log.info("Initiating payment for packageId={}", packageId);
         
         User user = getCurrentUser();
-        VipPackage vipPackage = vipPackageRepository.findById(packageId)
-                .orElseThrow(() -> {
-                    log.error("Package not found: {}", packageId);
-                    return new RuntimeException("VIP package not found");
-                });
+        VipPackage vipPackage = findPackage(packageId);
+        BigDecimal finalAmount = calculateFinalAmount(vipPackage);
         
         // Create transaction in PENDING state
         Transaction transaction = new Transaction();
         transaction.setUser(user);
         transaction.setPackageField(vipPackage);
-        transaction.setAmount(vipPackage.getPrice());
+        transaction.setAmount(finalAmount);
         transaction.setStatus(TransactionStatus.PENDING);
         transaction.setCreatedAt(Instant.now());
         transaction = transactionRepository.save(transaction);
@@ -80,7 +86,7 @@ public class TransactionService {
         // Generate VNPay payment URL
         VNPayService.PaymentRequest paymentRequest = new VNPayService.PaymentRequest(
                 paymentCode,
-                vipPackage.getPrice(),
+                finalAmount,
                 vipPackage.getName()
         );
         
@@ -88,6 +94,85 @@ public class TransactionService {
         log.info("Payment URL generated for txnRef={}", paymentCode);
         
         return paymentUrl;
+    }
+
+    /**
+     * Creates a server-side pending transaction for the mobile Visa demo.
+     * Card details intentionally never cross the API boundary.
+     */
+    @Transactional
+    public DemoCardPaymentResponse createDemoCardPayment(Integer packageId) {
+        ensureDemoCardEnabled();
+
+        User user = getCurrentUser();
+        VipPackage vipPackage = findPackage(packageId);
+
+        Transaction transaction = new Transaction();
+        transaction.setUser(user);
+        transaction.setPackageField(vipPackage);
+        transaction.setAmount(calculateFinalAmount(vipPackage));
+        transaction.setStatus(TransactionStatus.PENDING);
+        transaction.setCreatedAt(Instant.now());
+        transaction.setPaymentCode(
+                "DEMO-VISA-" + UUID.randomUUID().toString().replace("-", "")
+        );
+        transaction = transactionRepository.save(transaction);
+
+        log.info(
+                "Demo Visa transaction created: id={}, userId={}, amount={}",
+                transaction.getId(),
+                user.getId(),
+                transaction.getAmount()
+        );
+        return toDemoResponse(transaction, user.getVipExpiryDate());
+    }
+
+    /**
+     * Confirms a demo transaction once. Pessimistic locks prevent duplicate
+     * confirmation requests from extending the same VIP purchase twice.
+     */
+    @Transactional
+    public DemoCardPaymentResponse confirmDemoCardPayment(
+            Integer transactionId,
+            String paymentCode) {
+        ensureDemoCardEnabled();
+
+        User currentUser = getCurrentUser();
+        Transaction transaction = transactionRepository.findByIdForUpdate(transactionId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
+
+        if (!transaction.getUser().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Giao dịch không thuộc tài khoản hiện tại");
+        }
+        if (transaction.getPaymentCode() == null
+                || !transaction.getPaymentCode().startsWith("DEMO-VISA-")
+                || !transaction.getPaymentCode().equals(paymentCode)) {
+            throw new BadRequestException("Mã xác nhận thanh toán không hợp lệ");
+        }
+
+        User lockedUser = userRepository.findByIdForUpdate(currentUser.getId())
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy người dùng"));
+
+        if (transaction.getStatus() == TransactionStatus.SUCCESS) {
+            return toDemoResponse(transaction, lockedUser.getVipExpiryDate());
+        }
+        if (transaction.getStatus() != TransactionStatus.PENDING) {
+            throw new ConflictException("Giao dịch không còn ở trạng thái chờ xác nhận");
+        }
+
+        Instant vipExpiryDate = activateUserVip(
+                lockedUser,
+                transaction.getPackageField().getDurationDays()
+        );
+        transaction.setStatus(TransactionStatus.SUCCESS);
+        transactionRepository.save(transaction);
+
+        log.info(
+                "Demo Visa transaction confirmed: id={}, userId={}",
+                transaction.getId(),
+                lockedUser.getId()
+        );
+        return toDemoResponse(transaction, vipExpiryDate);
     }
 
     /**
@@ -105,6 +190,7 @@ public class TransactionService {
         
         String txnRef = params.get("vnp_TxnRef");
         String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
         
         // Verify signature
         if (!vnPayService.verifyCallback(params)) {
@@ -113,7 +199,7 @@ public class TransactionService {
         }
         
         // Check response code
-        boolean success = "00".equals(responseCode);
+        boolean success = "00".equals(responseCode) && "00".equals(transactionStatus);
         log.info("Payment result for txnRef={}: {}", txnRef, success ? "SUCCESS" : "FAILED");
         
         return success;
@@ -146,7 +232,7 @@ public class TransactionService {
         log.info("IPN received for txnRef={}", txnRef);
         
         // ② Find transaction
-        Optional<Transaction> transactionOpt = transactionRepository.findByPaymentCode(txnRef);
+        Optional<Transaction> transactionOpt = transactionRepository.findByPaymentCodeForUpdate(txnRef);
         if (transactionOpt.isEmpty()) {
             log.error("Transaction not found for txnRef={}", txnRef);
             return VNPayIpnResponse.orderNotFound();
@@ -158,7 +244,13 @@ public class TransactionService {
         long expectedAmount = transaction.getAmount()
                 .multiply(BigDecimal.valueOf(100))
                 .longValue();
-        long receivedAmount = Long.parseLong(params.getOrDefault("vnp_Amount", "0"));
+        long receivedAmount;
+        try {
+            receivedAmount = Long.parseLong(params.getOrDefault("vnp_Amount", "0"));
+        } catch (NumberFormatException exception) {
+            log.warn("Invalid amount format for txnRef={}", txnRef);
+            return VNPayIpnResponse.invalidAmount();
+        }
         
         if (expectedAmount != receivedAmount) {
             log.error("Amount mismatch for txnRef={}: expected={}, received={}", 
@@ -175,10 +267,13 @@ public class TransactionService {
         
         // ⑤ Update status based on response code and activate VIP
         String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
         
-        if ("00".equals(responseCode)) {
+        if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
             transaction.setStatus(TransactionStatus.SUCCESS);
-            activateUserVip(transaction.getUser(), transaction.getPackageField().getDurationDays());
+            User lockedUser = userRepository.findByIdForUpdate(transaction.getUser().getId())
+                    .orElseThrow(() -> new NotFoundException("Không tìm thấy người dùng"));
+            activateUserVip(lockedUser, transaction.getPackageField().getDurationDays());
             log.info("Payment successful and VIP activated for txnRef={}, userId={}", 
                     txnRef, transaction.getUser().getId());
         } else {
@@ -208,7 +303,7 @@ public class TransactionService {
      * Activate VIP subscription for user.
      * Extends VIP expiry if already active, otherwise sets new expiry.
      */
-    private void activateUserVip(User user, int durationDays) {
+    private Instant activateUserVip(User user, int durationDays) {
         Instant now = Instant.now();
         Instant newExpiryDate;
         
@@ -225,6 +320,39 @@ public class TransactionService {
         
         user.setVipExpiryDate(newExpiryDate);
         userRepository.save(user);
+        return newExpiryDate;
+    }
+
+    private VipPackage findPackage(Integer packageId) {
+        return vipPackageRepository.findById(packageId)
+                .orElseThrow(() -> new NotFoundException("Không tìm thấy gói VIP"));
+    }
+
+    private BigDecimal calculateFinalAmount(VipPackage vipPackage) {
+        int discountPercent = Optional.ofNullable(vipPackage.getDiscountPercent()).orElse(0);
+        BigDecimal multiplier = BigDecimal.valueOf(100L - discountPercent)
+                .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+        return vipPackage.getPrice()
+                .multiply(multiplier)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void ensureDemoCardEnabled() {
+        if (!demoCardPaymentConfig.isEnabled()) {
+            throw new ForbiddenException("Thanh toán thẻ thử nghiệm đã bị tắt");
+        }
+    }
+
+    private DemoCardPaymentResponse toDemoResponse(
+            Transaction transaction,
+            Instant vipExpiryDate) {
+        return DemoCardPaymentResponse.builder()
+                .transactionId(transaction.getId())
+                .paymentCode(transaction.getPaymentCode())
+                .amount(transaction.getAmount())
+                .status(transaction.getStatus())
+                .vipExpiryDate(vipExpiryDate)
+                .build();
     }
 
     /**

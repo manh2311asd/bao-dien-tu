@@ -9,10 +9,10 @@ import ptit.tmdt.lop6nhom7.baodientu.security.VNPayConfig;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URLEncoder;
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.Iterator;
 
 /**
  * VNPay integration service - handles payment URL generation and signature verification.
@@ -31,25 +31,29 @@ public class VNPayService {
     public String generatePaymentUrl(PaymentRequest request, HttpServletRequest httpRequest) {
         log.debug("Generating VNPay payment URL for txnRef={}, amount={}", request.getTxnRef(), request.getAmount());
 
-        long vnpayAmount = request.getAmount().longValue() * 100;
+        requireGatewayConfiguration();
+
+        long vnpayAmount = request.getAmount().movePointRight(2).longValueExact();
 
         Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_Version", "2.1.0");
-        vnp_Params.put("vnp_Command", "pay");
+        vnp_Params.put("vnp_Version", vnPayConfig.getVersion());
+        vnp_Params.put("vnp_Command", vnPayConfig.getCommand());
         vnp_Params.put("vnp_TmnCode", vnPayConfig.getTmnCode());
         vnp_Params.put("vnp_Amount", String.valueOf(vnpayAmount));
-        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put("vnp_CurrCode", vnPayConfig.getCurrCode());
         vnp_Params.put("vnp_TxnRef", request.getTxnRef());
         vnp_Params.put("vnp_OrderInfo", request.getOrderInfo());
-        vnp_Params.put("vnp_OrderType", "other");
-        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_OrderType", vnPayConfig.getOrderType());
+        vnp_Params.put("vnp_Locale", vnPayConfig.getLocale());
         vnp_Params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
 
         String ip = extractClientIp(httpRequest);
         vnp_Params.put("vnp_IpAddr", ip);
 
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        TimeZone vietnamTimeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
+        Calendar cld = Calendar.getInstance(vietnamTimeZone);
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        formatter.setTimeZone(vietnamTimeZone);
 
         String vnp_CreateDate = formatter.format(cld.getTime());
         vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
@@ -65,25 +69,21 @@ public class VNPayService {
         StringBuilder query = new StringBuilder();
 
         try {
-            Iterator<String> itr = fieldNames.iterator();
-            while (itr.hasNext()) {
-                String fieldName = itr.next();
+            boolean firstParam = true;
+            for (String fieldName : fieldNames) {
                 String fieldValue = vnp_Params.get(fieldName);
-
-                if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                    hashData.append(fieldName);
-                    hashData.append('=');
-                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
-                    query.append('=');
-                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-
-                    if (itr.hasNext()) {
-                        query.append('&');
-                        hashData.append('&');
-                    }
+                if (fieldValue == null || fieldValue.isEmpty()) {
+                    continue;
                 }
+                if (!firstParam) {
+                    query.append('&');
+                    hashData.append('&');
+                }
+                String encodedName = URLEncoder.encode(fieldName, StandardCharsets.UTF_8);
+                String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8);
+                hashData.append(fieldName).append('=').append(encodedValue);
+                query.append(encodedName).append('=').append(encodedValue);
+                firstParam = false;
             }
         } catch (Exception e) {
             throw new RuntimeException("URL encoding failed", e);
@@ -95,8 +95,6 @@ public class VNPayService {
         String paymentUrl = vnPayConfig.getUrl() + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
         log.info("Payment URL generated - txnRef: {}, amount: {}", request.getTxnRef(), vnpayAmount);
-        log.debug("Payment hash data: {}", hashData);
-
         return paymentUrl;
     }
     
@@ -110,9 +108,14 @@ public class VNPayService {
             return false;
         }
         
-        Map<String, String> verifyParams = new TreeMap<>(params);
-        verifyParams.remove("vnp_SecureHash");
-        verifyParams.remove("vnp_SecureHashType");
+        Map<String, String> verifyParams = new TreeMap<>();
+        params.forEach((key, value) -> {
+            if (key.startsWith("vnp_")
+                    && !"vnp_SecureHash".equals(key)
+                    && !"vnp_SecureHashType".equals(key)) {
+                verifyParams.put(key, value);
+            }
+        });
         
         StringBuilder hashData = new StringBuilder();
         List<String> keys = new ArrayList<>(verifyParams.keySet());
@@ -129,13 +132,12 @@ public class VNPayService {
         }
         
         String computedHash = generateHmacSHA512(vnPayConfig.getHashSecret(), hashData.toString());
-        boolean isValid = computedHash.equalsIgnoreCase(receivedHash);
+        boolean isValid = MessageDigest.isEqual(
+                computedHash.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII),
+                receivedHash.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII)
+        );
         
         log.debug("Signature verification - txnRef: {}, valid: {}", verifyParams.get("vnp_TxnRef"), isValid);
-        if (!isValid) {
-            log.warn("Invalid signature - received: {}, computed: {}", receivedHash, computedHash);
-        }
-        
         return isValid;
     }
     
@@ -163,15 +165,28 @@ public class VNPayService {
     }
     
     /**
-     * URL encode value using US_ASCII charset (VNPay standard).
+     * URL encode callback values using UTF-8 as required by VNPay 2.1.0.
      */
     private String urlEncode(String value) {
         try {
-            return URLEncoder.encode(value, StandardCharsets.US_ASCII.name());
+            return URLEncoder.encode(value, StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.error("Error encoding value", e);
             throw new RuntimeException("Failed to encode value", e);
         }
+    }
+
+    private void requireGatewayConfiguration() {
+        if (isBlank(vnPayConfig.getTmnCode())
+                || isBlank(vnPayConfig.getHashSecret())
+                || isBlank(vnPayConfig.getUrl())
+                || isBlank(vnPayConfig.getReturnUrl())) {
+            throw new IllegalStateException("VNPay is not configured on the server");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
     
     /**

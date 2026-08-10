@@ -24,11 +24,12 @@
 ### Cách 1: Chạy với MySQL local
 Mở terminal trong VS Code tại thư mục backend:
 ```powershell
-cd D:\TMDT\6-7-TMDT-Backend-latest
+cd D:\app\Bao-dien-tu
 $env:TMDT_JWT_SECRET="dG1kdC1sb2NhbC1zZWNyZXQta2V5LTMyLWJ5dGVzISE="
 $env:TMDT_MAIL_USERNAME="local@example.com"
 $env:TMDT_MAIL_PASSWORD="local-password"
 $env:GEMINI_API_KEY="dummy-local-key"
+$env:TMDT_DEMO_CARD_PAYMENT_ENABLED="true"
 .\mvnw.cmd spring-boot:run
 ```
 Theo mặc định, backend sẽ dùng MySQL local:
@@ -40,7 +41,7 @@ jdbc:mysql://localhost:3306/pthttmdt
 Repo có sẵn file script: `run-backend-azure.ps1`.
 Mở terminal trong VS Code tại thư mục backend rồi chạy:
 ```powershell
-cd D:\TMDT\6-7-TMDT-Backend-latest
+cd D:\app\Bao-dien-tu
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\run-backend-azure.ps1
 ```
@@ -78,3 +79,17 @@ Chế độ tự đăng ký tác giả đang bật mặc định cho bản demo.
 ```powershell
 $env:TMDT_ALLOW_AUTHOR_SELF_REGISTRATION="false"
 ```
+
+### Thanh toán Visa thử nghiệm trên app
+
+Backend có luồng `demo-card` dành riêng cho việc trình diễn trên app. Luồng này tạo giao dịch chờ, xác nhận một lần trên server rồi kích hoạt thời hạn VIP. API không nhận và không lưu số thẻ, ngày hết hạn hoặc CVV.
+
+Chế độ demo mặc định bị tắt để tránh kích hoạt VIP miễn phí khi deploy. Chỉ bật trong terminal dùng để trình diễn:
+
+```powershell
+$env:TMDT_DEMO_CARD_PAYMENT_ENABLED="true"
+```
+
+Script Azure giữ chế độ này ở trạng thái tắt nếu không được cấu hình rõ ràng.
+
+VNPay vẫn là luồng thanh toán thật và cần cấu hình đầy đủ `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_RETURN_URL` và `VNPAY_IPN_URL` công khai.
