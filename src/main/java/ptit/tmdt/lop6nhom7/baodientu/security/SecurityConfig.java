@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/users/*/public-profile").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/*/comments").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/utilities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/news").permitAll()
                         .requestMatchers("/api/vip-packages/**").permitAll()
                         .requestMatchers("/api/transactions/vnpay-return").permitAll()
                         .requestMatchers("/api/transactions/vnpay-ipn").permitAll()

@@ -12,6 +12,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "news.rss")
 public class RssSourceProperties {
     private boolean enabled = true;
+    private boolean scheduledRefreshEnabled = false;
     private List<FeedSource> sources = new ArrayList<>();
 
     @Data

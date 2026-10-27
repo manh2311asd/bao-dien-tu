@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -42,6 +43,7 @@ import ptit.tmdt.lop6nhom7.baodientu.security.JwtService;
 import ptit.tmdt.lop6nhom7.baodientu.service.AuthService;
 import ptit.tmdt.lop6nhom7.baodientu.service.AdminUserService;
 import ptit.tmdt.lop6nhom7.baodientu.service.NewsNotificationService;
+import ptit.tmdt.lop6nhom7.baodientu.service.HtmlSanitizerService;
 import ptit.tmdt.lop6nhom7.baodientu.service.StaffArticleService;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +52,7 @@ class StaffSecurityWorkflowTests {
   @Mock private CategoryRepo categoryRepo;
   @Mock private UserRepo userRepo;
   @Mock private NewsNotificationService newsNotificationService;
+  @Spy private HtmlSanitizerService htmlSanitizerService = new HtmlSanitizerService();
   @InjectMocks private StaffArticleService staffArticleService;
 
   @Mock private PasswordEncoder passwordEncoder;

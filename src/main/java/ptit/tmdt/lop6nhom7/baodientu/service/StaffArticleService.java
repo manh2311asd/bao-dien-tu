@@ -33,6 +33,7 @@ public class StaffArticleService {
     private final CategoryRepo categoryRepo;
     private final UserRepo userRepo;
     private final NewsNotificationService newsNotificationService;
+    private final HtmlSanitizerService htmlSanitizerService;
 
     @Transactional
     public ArticleDTO createArticle(ArticleUpdateRequest request, boolean submitForReview) {
@@ -171,7 +172,11 @@ public class StaffArticleService {
         article.setCoverImage(request.getCoverImage().trim());
         article.setTitle(request.getTitle().trim());
         article.setSapo(request.getSapo().trim());
-        article.setContent(request.getContent().trim());
+        String sanitizedContent = htmlSanitizerService.sanitizeArticleHtml(request.getContent());
+        if (!htmlSanitizerService.hasReadableText(sanitizedContent)) {
+            throw new BadRequestException("Nội dung bài viết không hợp lệ sau khi loại bỏ mã HTML không an toàn");
+        }
+        article.setContent(sanitizedContent);
         article.setType(request.getType());
     }
 
@@ -203,7 +208,7 @@ public class StaffArticleService {
             .coverImage(article.getCoverImage())
             .title(article.getTitle())
             .sapo(article.getSapo())
-            .content(article.getContent())
+            .content(htmlSanitizerService.sanitizeArticleHtml(article.getContent()))
             .type(article.getType())
             .status(article.getStatus())
             .rejectionReason(article.getRejectionReason())

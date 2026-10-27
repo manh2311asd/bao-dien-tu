@@ -75,7 +75,8 @@ vnpay:
  
 news:
   rss:
-    enabled: true
+    enabled: ${NEWS_RSS_ENABLED:true}
+    scheduled-refresh-enabled: ${NEWS_RSS_SCHEDULED_REFRESH_ENABLED:false}
     refresh-delay-ms: 900000
     sources:
       - name: VnExpress
@@ -100,7 +101,7 @@ news:
         url: https://thanhnien.vn/rss/home.rss
         defaultCategory: Tin mới nhất
       - name: Thanh Niên
-        url: https://thanhnien.vn/rss/cong-nghe-thong-tin.rss
+        url: https://thanhnien.vn/rss/cong-nghe.rss
         defaultCategory: Công nghệ
       - name: Thanh Niên
         url: https://thanhnien.vn/rss/kinh-te.rss
@@ -115,7 +116,7 @@ news:
         url: https://dantri.com.vn/rss/kinh-doanh.rss
         defaultCategory: Kinh doanh
       - name: VietnamNet
-        url: https://vietnamnet.vn/rss/home.rss
+        url: https://vietnamnet.vn/rss/thoi-su.rss
         defaultCategory: Tin mới nhất
       - name: VietnamNet
         url: https://vietnamnet.vn/rss/cong-nghe.rss

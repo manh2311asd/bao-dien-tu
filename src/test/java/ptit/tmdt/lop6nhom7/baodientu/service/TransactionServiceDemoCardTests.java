@@ -2,6 +2,7 @@ package ptit.tmdt.lop6nhom7.baodientu.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,8 @@ import ptit.tmdt.lop6nhom7.baodientu.entity.Transaction;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
 import ptit.tmdt.lop6nhom7.baodientu.entity.VipPackage;
 import ptit.tmdt.lop6nhom7.baodientu.enums.TransactionStatus;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserRole;
+import ptit.tmdt.lop6nhom7.baodientu.exception.ForbiddenException;
 import ptit.tmdt.lop6nhom7.baodientu.repository.TransactionRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.VipPackageRepo;
@@ -47,6 +50,7 @@ class TransactionServiceDemoCardTests {
   void setUp() {
     user = new User();
     user.setId(7);
+    user.setRole(UserRole.MEMBER);
 
     vipPackage = new VipPackage();
     vipPackage.setId(2);
@@ -82,6 +86,17 @@ class TransactionServiceDemoCardTests {
     assertEquals(TransactionStatus.PENDING, result.getStatus());
     assertEquals(41, result.getTransactionId());
     assertNotNull(result.getPaymentCode());
+  }
+
+  @Test
+  void staffAccountCannotPurchaseVipPackage() {
+    user.setRole(UserRole.ADMIN);
+
+    assertThrows(
+        ForbiddenException.class,
+        () -> transactionService.createDemoCardPayment(2)
+    );
+    verify(vipPackageRepository, never()).findById(2);
   }
 
   @Test

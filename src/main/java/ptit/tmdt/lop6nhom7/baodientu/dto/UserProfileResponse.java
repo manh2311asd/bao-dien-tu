@@ -11,5 +11,6 @@ public record UserProfileResponse(
     UserRole role,
     Instant vipExpiryDate,
     Instant createdAt,
-    String avatar
+    String avatar,
+    int freeArticlesLeft
 ) {}

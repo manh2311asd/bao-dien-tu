@@ -58,6 +58,10 @@ if (-not $env:TMDT_DEMO_CARD_PAYMENT_ENABLED) {
   $env:TMDT_DEMO_CARD_PAYMENT_ENABLED = 'false'
 }
 
+# Điểm báo luôn đọc RSS qua cache RAM; không chạy tác vụ ghi RSS vào MySQL.
+$env:NEWS_RSS_ENABLED = 'true'
+$env:NEWS_RSS_SCHEDULED_REFRESH_ENABLED = 'false'
+
 Write-Host 'Starting backend with Azure MySQL configuration...'
 Write-Host "Database URL: $env:TMDT_DB_URL"
 Write-Host "Database user: $env:TMDT_DB_USERNAME"

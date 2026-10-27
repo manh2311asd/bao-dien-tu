@@ -32,6 +32,7 @@ import ptit.tmdt.lop6nhom7.baodientu.repository.ArticleViewRepo;
 import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 import ptit.tmdt.lop6nhom7.baodientu.service.AnonymousReadMeterService;
 import ptit.tmdt.lop6nhom7.baodientu.service.ArticleService;
+import ptit.tmdt.lop6nhom7.baodientu.service.HtmlSanitizerService;
 import ptit.tmdt.lop6nhom7.baodientu.service.NewsNotificationService;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +48,8 @@ class ArticleReaderCountTests {
   private AnonymousReadMeterService anonymousReadMeterService;
   @Mock
   private NewsNotificationService newsNotificationService;
+  @Mock
+  private HtmlSanitizerService htmlSanitizerService;
   @InjectMocks
   private ArticleService articleService;
 
@@ -91,7 +94,7 @@ class ArticleReaderCountTests {
   }
 
   @Test
-  void repeatedAnonymousReaderKeepsPageViewButNotPublicCounter() {
+  void repeatedAnonymousReaderDoesNotCreateAnotherViewOrIncrementCounter() {
     when(articleViewRepo.existsByArticleIdAndReaderIdentity(
         org.mockito.ArgumentMatchers.eq(31),
         anyString()
@@ -100,7 +103,7 @@ class ArticleReaderCountTests {
     var response = articleService.readArticle(31, "mobile-device-a");
 
     assertEquals(7, response.getViewCount());
-    verify(articleViewRepo).save(any(ArticleView.class));
+    verify(articleViewRepo, never()).save(any(ArticleView.class));
     verify(articleRepo, never()).save(any(Article.class));
     verify(newsNotificationService, never()).notifyIfHot(any(Article.class));
   }
@@ -119,10 +122,7 @@ class ArticleReaderCountTests {
 
     articleService.readArticle(31, "ignored-for-account");
 
-    ArgumentCaptor<ArticleView> event = ArgumentCaptor.forClass(ArticleView.class);
-    verify(articleViewRepo).save(event.capture());
-    assertEquals(reader, event.getValue().getUser());
-    assertEquals(null, event.getValue().getReaderIdentity());
+    verify(articleViewRepo, never()).save(any(ArticleView.class));
     verify(articleRepo, never()).save(any(Article.class));
   }
 }

@@ -15,6 +15,7 @@ import ptit.tmdt.lop6nhom7.baodientu.entity.Transaction;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
 import ptit.tmdt.lop6nhom7.baodientu.entity.VipPackage;
 import ptit.tmdt.lop6nhom7.baodientu.enums.TransactionStatus;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserRole;
 import ptit.tmdt.lop6nhom7.baodientu.exception.BadRequestException;
 import ptit.tmdt.lop6nhom7.baodientu.exception.ConflictException;
 import ptit.tmdt.lop6nhom7.baodientu.exception.ForbiddenException;
@@ -62,7 +63,7 @@ public class TransactionService {
     public String initiatePayment(Integer packageId, HttpServletRequest httpRequest) {
         log.info("Initiating payment for packageId={}", packageId);
         
-        User user = getCurrentUser();
+        User user = requireReaderAccount();
         VipPackage vipPackage = findPackage(packageId);
         BigDecimal finalAmount = calculateFinalAmount(vipPackage);
         
@@ -104,7 +105,7 @@ public class TransactionService {
     public DemoCardPaymentResponse createDemoCardPayment(Integer packageId) {
         ensureDemoCardEnabled();
 
-        User user = getCurrentUser();
+        User user = requireReaderAccount();
         VipPackage vipPackage = findPackage(packageId);
 
         Transaction transaction = new Transaction();
@@ -137,7 +138,7 @@ public class TransactionService {
             String paymentCode) {
         ensureDemoCardEnabled();
 
-        User currentUser = getCurrentUser();
+        User currentUser = requireReaderAccount();
         Transaction transaction = transactionRepository.findByIdForUpdate(transactionId)
                 .orElseThrow(() -> new NotFoundException("Không tìm thấy giao dịch"));
 
@@ -341,6 +342,14 @@ public class TransactionService {
         if (!demoCardPaymentConfig.isEnabled()) {
             throw new ForbiddenException("Thanh toán thẻ thử nghiệm đã bị tắt");
         }
+    }
+
+    private User requireReaderAccount() {
+        User user = getCurrentUser();
+        if (user.getRole() != UserRole.MEMBER && user.getRole() != UserRole.VIP) {
+            throw new ForbiddenException("Gói VIP và thanh toán chỉ dành cho tài khoản người đọc");
+        }
+        return user;
     }
 
     private DemoCardPaymentResponse toDemoResponse(

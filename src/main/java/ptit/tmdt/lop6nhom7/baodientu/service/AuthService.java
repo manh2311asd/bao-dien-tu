@@ -32,6 +32,7 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
   private final ObjectMapper objectMapper;
+  private final MonthlyVipReadQuotaService monthlyVipReadQuotaService;
 
   @Value("${app.auth.allow-author-self-registration:false}")
   private boolean allowAuthorSelfRegistration;
@@ -51,6 +52,13 @@ public class AuthService {
     if (!passwordEncoder.matches(password, u.getPasswordHash())) {
       throw new UnauthorizedException("Sai tên đăng nhập hoặc mật khẩu");
     }
+    // Recalculate from article views so the app and web always show the same
+    // monthly allowance, including after a calendar-month reset.
+    int freeArticlesLeft = monthlyVipReadQuotaService.getRemainingReads(u.getId());
+    if (!java.util.Objects.equals(u.getFreeArticlesLeft(), freeArticlesLeft)) {
+      u.setFreeArticlesLeft(freeArticlesLeft);
+      userRepo.save(u);
+    }
     // Generate JWT
     String jwtToken = jwtService.generateToken(u);
     // return
@@ -59,7 +67,7 @@ public class AuthService {
         u.getRole(),
         u.getFullName(),
         u.getVipExpiryDate(),
-        u.getFreeArticlesLeft(),
+        freeArticlesLeft,
         u.getId(),
         u.getEmail(),
         u.getAvatarUrl()

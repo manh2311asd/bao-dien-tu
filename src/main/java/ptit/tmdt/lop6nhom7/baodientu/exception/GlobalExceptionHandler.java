@@ -1,6 +1,7 @@
 package ptit.tmdt.lop6nhom7.baodientu.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,6 +36,13 @@ public class GlobalExceptionHandler {
     return ResponseEntity
         .status(HttpStatus.FORBIDDEN)
         .body(ErrorResponse.of(403, ex.getMessage()));
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+    return ResponseEntity
+        .status(HttpStatus.FORBIDDEN)
+        .body(ErrorResponse.of(403, "Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n thao tÃ¡c nÃ y"));
   }
   
   @ExceptionHandler(NotFoundException.class)

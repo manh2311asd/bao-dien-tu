@@ -16,6 +16,6 @@ public class RssImportController {
     @PostMapping("/import")
     public ResponseEntity<String> triggerImport() {
         rssImportService.importAll();
-        return ResponseEntity.ok("RSS import triggered successfully");
+        return ResponseEntity.ok("External news memory cache refreshed successfully");
     }
 }

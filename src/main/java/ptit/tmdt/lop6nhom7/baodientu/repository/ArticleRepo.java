@@ -25,6 +25,31 @@ public interface ArticleRepo extends JpaRepository<Article, Integer> {
   List<Article> findByStatusOrderByCreatedAtDesc(ArticleStatus status);
   List<Article> findByStatusInOrderByCreatedAtDesc(List<ArticleStatus> statuses);
   List<Article> findByStatusInAndTitleContainingIgnoreCaseOrderByCreatedAtDesc(List<ArticleStatus> statuses, String title);
+  @Query("""
+      select a
+      from Article a
+      where a.status in :statuses
+        and (a.origin is null or a.origin = ptit.tmdt.lop6nhom7.baodientu.enums.ArticleOrigin.INTERNAL)
+      order by a.createdAt desc
+      """)
+  @EntityGraph(attributePaths = {"author", "category"})
+  List<Article> findInternalByStatusInOrderByCreatedAtDesc(
+      @Param("statuses") List<ArticleStatus> statuses
+  );
+
+  @Query("""
+      select a
+      from Article a
+      where a.status in :statuses
+        and (a.origin is null or a.origin = ptit.tmdt.lop6nhom7.baodientu.enums.ArticleOrigin.INTERNAL)
+        and lower(a.title) like lower(concat('%', :title, '%'))
+      order by a.createdAt desc
+      """)
+  @EntityGraph(attributePaths = {"author", "category"})
+  List<Article> findInternalByStatusInAndTitleContainingIgnoreCaseOrderByCreatedAtDesc(
+      @Param("statuses") List<ArticleStatus> statuses,
+      @Param("title") String title
+  );
   List<Article> findAllByOrderByCreatedAtDesc();
   List<Article> findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(String title);
   List<Article> findByAuthorIdOrderByCreatedAtDesc(Integer authorId);

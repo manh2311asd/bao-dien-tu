@@ -22,6 +22,7 @@ import java.util.Locale;
 public class UserAccountService {
   private final UserRepo userRepo;
   private final PasswordEncoder passwordEncoder;
+  private final MonthlyVipReadQuotaService monthlyVipReadQuotaService;
 
   @Transactional(readOnly = true)
   public UserProfileResponse getProfile(Integer userId) {
@@ -80,7 +81,8 @@ public class UserAccountService {
         user.getRole(),
         user.getVipExpiryDate(),
         user.getCreatedAt(),
-        user.getAvatarUrl()
+        user.getAvatarUrl(),
+        monthlyVipReadQuotaService.getRemainingReads(user.getId())
     );
   }
 }

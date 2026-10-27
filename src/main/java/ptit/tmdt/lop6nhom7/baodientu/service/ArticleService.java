@@ -12,8 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.function.Function;
@@ -50,6 +48,7 @@ import ptit.tmdt.lop6nhom7.baodientu.entity.ArticleView;
 import ptit.tmdt.lop6nhom7.baodientu.entity.User;
 import ptit.tmdt.lop6nhom7.baodientu.enums.ArticleStatus;
 import ptit.tmdt.lop6nhom7.baodientu.enums.ArticleType;
+import ptit.tmdt.lop6nhom7.baodientu.enums.UserRole;
 import ptit.tmdt.lop6nhom7.baodientu.enums.UserStatus;
 import ptit.tmdt.lop6nhom7.baodientu.enums.VipPreviewAccessMode;
 import ptit.tmdt.lop6nhom7.baodientu.exception.BadRequestException;
@@ -65,7 +64,6 @@ import ptit.tmdt.lop6nhom7.baodientu.repository.UserRepo;
 public class ArticleService {
     private static final int PREVIEW_PARAGRAPH_LIMIT = 2;
     private static final int PREVIEW_CHARACTER_LIMIT = 700;
-    private static final int MONTHLY_FREE_VIP_ARTICLE_LIMIT = 3;
     private static final int HOME_ARTICLE_LIMIT = 12;
     private static final int TRENDING_ARTICLE_LIMIT = 3;
     private static final int TRENDING_PERIOD_DAYS = 3;
@@ -74,7 +72,9 @@ public class ArticleService {
     private final ArticleViewRepo articleViewRepo;
     private final UserRepo userRepo;
     private final AnonymousReadMeterService anonymousReadMeterService;
+    private final MonthlyVipReadQuotaService monthlyVipReadQuotaService;
     private final NewsNotificationService newsNotificationService;
+    private final HtmlSanitizerService htmlSanitizerService;
     private final ObjectMapper objectMapper;
     private final HttpClient translationHttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
@@ -421,7 +421,7 @@ public class ArticleService {
                 throw new ForbiddenException("Vui lòng đăng nhập để sử dụng lượt đọc miễn phí hoặc đăng ký VIP để đọc toàn bộ bài viết này.");
             }
 
-            if (hasActiveVip(currentUser.get())) {
+            if (hasStaffArticleAccess(currentUser.get()) || hasActiveVip(currentUser.get())) {
                 vipAccessGranted = true;
             } else {
                 meteredDecision = resolveMeteredAccess(article, currentUser, anonymousReaderKey);
@@ -434,7 +434,7 @@ public class ArticleService {
             .id(article.getId())
             .title(article.getTitle())
             .sapo(article.getSapo())
-            .content(article.getContent())
+            .content(htmlSanitizerService.sanitizeArticleHtml(article.getContent()))
             .coverImage(article.getCoverImage())
             .authorName(article.getAuthor() != null ? article.getAuthor().getFullName() : null)
             .authorId(article.getAuthor() != null ? article.getAuthor().getId() : null)
@@ -483,31 +483,17 @@ public class ArticleService {
                 throw new ForbiddenException("Nguoi dung bi khoa tai khoan");
             }
 
-            Instant startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-            Instant now = Instant.now();
-            boolean alreadyRead = articleViewRepo.existsByUserIdAndArticleIdAndViewedAtBetween(
-                user.getId(),
-                article.getId(),
-                startOfMonth,
-                now
-            );
-            long usedReads = articleViewRepo.countDistinctArticlesByUserAndTypeWithinPeriod(
-                user.getId(),
-                ArticleType.VIP,
-                startOfMonth,
-                now
-            );
+            MonthlyVipReadQuotaService.QuotaStatus quota =
+                monthlyVipReadQuotaService.inspect(user.getId(), article.getId());
 
-            if (!alreadyRead && usedReads >= MONTHLY_FREE_VIP_ARTICLE_LIMIT) {
+            if (!quota.canOpen()) {
                 throw new ForbiddenException("Bạn đã hết lượt đọc miễn phí trong tháng. Hãy đăng ký VIP để tiếp tục đọc không giới hạn.");
             }
 
-            int remaining = alreadyRead
-                ? Math.max(0, MONTHLY_FREE_VIP_ARTICLE_LIMIT - (int) usedReads)
-                : Math.max(0, MONTHLY_FREE_VIP_ARTICLE_LIMIT - (int) usedReads - 1);
+            int remaining = quota.remainingAfterOpening();
             user.setFreeArticlesLeft(remaining);
             userRepo.save(user);
-            return MeteredDecision.metered(remaining, !alreadyRead);
+            return MeteredDecision.metered(remaining, !quota.alreadyRead());
         }
 
         AnonymousReadMeterService.MeteredAccessResult result = anonymousReadMeterService.consumeRead(
@@ -528,33 +514,18 @@ public class ArticleService {
         }
 
         User user = currentUser.get();
-        if (hasActiveVip(user)) {
+        if (hasStaffArticleAccess(user) || hasActiveVip(user)) {
             return VipPreviewDecision.vip();
         }
         if (user.getStatus() == UserStatus.LOCKED) {
             return VipPreviewDecision.paywall(0);
         }
 
-        Instant startOfMonth = LocalDate.now()
-            .withDayOfMonth(1)
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant();
-        Instant now = Instant.now();
-        boolean alreadyRead = articleViewRepo.existsByUserIdAndArticleIdAndViewedAtBetween(
-            user.getId(),
-            article.getId(),
-            startOfMonth,
-            now
-        );
-        long usedReads = articleViewRepo.countDistinctArticlesByUserAndTypeWithinPeriod(
-            user.getId(),
-            ArticleType.VIP,
-            startOfMonth,
-            now
-        );
-        int remaining = Math.max(0, MONTHLY_FREE_VIP_ARTICLE_LIMIT - (int) usedReads);
+        MonthlyVipReadQuotaService.QuotaStatus quota =
+            monthlyVipReadQuotaService.inspect(user.getId(), article.getId());
+        int remaining = quota.remainingReads();
 
-        if (alreadyRead) {
+        if (quota.alreadyRead()) {
             return VipPreviewDecision.alreadyRead(remaining);
         }
         if (remaining > 0) {
@@ -571,18 +542,18 @@ public class ArticleService {
             ? !articleViewRepo.existsByUserIdAndArticleId(user.getId(), article.getId())
             : !articleViewRepo.existsByArticleIdAndReaderIdentity(article.getId(), readerIdentity);
 
-        // Keep a page-view event for quota and analytics on every successful read.
+        // A reader contributes at most one view and one revenue event per article.
+        // Reopening an article must not inflate the public counter or author income.
+        if (!firstReaderView) {
+            return;
+        }
+
         ArticleView articleView = new ArticleView();
         articleView.setArticle(article);
         articleView.setUser(user);
         articleView.setReaderIdentity(readerIdentity);
         articleView.setViewedAt(Instant.now());
         articleViewRepo.save(articleView);
-
-        // The public counter represents unique readers, not repeated opens.
-        if (!firstReaderView) {
-            return;
-        }
 
         article.setViewCount((article.getViewCount() == null ? 0 : article.getViewCount()) + 1);
         articleRepo.save(article);
@@ -618,6 +589,13 @@ public class ArticleService {
         return user.getStatus() != UserStatus.LOCKED
             && user.getVipExpiryDate() != null
             && user.getVipExpiryDate().isAfter(Instant.now());
+    }
+
+    private boolean hasStaffArticleAccess(User user) {
+        return user.getStatus() != UserStatus.LOCKED
+            && (user.getRole() == UserRole.AUTHOR
+                || user.getRole() == UserRole.CENSOR
+                || user.getRole() == UserRole.ADMIN);
     }
 
     private String resolveAccessMessage(ArticleType articleType, boolean vipAccessGranted, MeteredDecision meteredDecision) {

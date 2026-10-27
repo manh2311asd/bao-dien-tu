@@ -67,6 +67,34 @@ Backend chạy đúng khi terminal hiện:
 Tomcat started on port 8082
 ```
 
+### Điểm báo RSS trực tiếp
+
+Ứng dụng mobile lấy tin ngoài qua `GET /api/news`. API đọc RSS, chuẩn hóa dữ
+liệu và giữ snapshot trong RAM 3 phút để phân trang; dữ liệu không được tạo
+thành `Article` và không được lưu vào MySQL. Tham số `refresh=true` dùng cho
+thao tác kéo xuống làm mới, nhưng backend giới hạn tối thiểu 30 giây giữa hai
+lần tải nguồn để tránh spam RSS.
+
+Ví dụ kiểm tra trên Swagger hoặc trình duyệt:
+
+```text
+GET /api/news
+GET /api/news?page=1&pageSize=20
+GET /api/news?category=technology&page=1&pageSize=20
+GET /api/news?source=VnExpress&page=1&pageSize=20
+GET /api/news?refresh=true
+```
+
+Tiến trình làm nóng cache định kỳ được tắt mặc định. Có thể bật nếu môi trường
+triển khai cần chuẩn bị dữ liệu trước (tiến trình này cũng không ghi MySQL):
+
+```powershell
+$env:NEWS_RSS_SCHEDULED_REFRESH_ENABLED="true"
+```
+
+`run-backend-azure.ps1` luôn đặt `NEWS_RSS_SCHEDULED_REFRESH_ENABLED=false` để
+bảo đảm bản demo dùng Azure MySQL không nhập tin Điểm báo vào bảng `Articles`.
+
 ### Phân quyền khi đăng ký bản demo
 
 - Web gửi `role=MEMBER` hoặc `role=AUTHOR`; backend cấp đúng vai trò người dùng chọn.

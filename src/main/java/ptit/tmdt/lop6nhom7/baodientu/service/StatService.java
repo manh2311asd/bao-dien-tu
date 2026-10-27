@@ -669,9 +669,7 @@ public class StatService {
                 ? List.of()
                 : buildViewSeries(periodUnit, startInstant, endInstant, viewsByPeriod);
 
-        long estimatedEarning = ArticleType.VIP.equals(article.getType())
-                ? totalViews * VIP_REVENUE_PER_VIEW
-                : 0L;
+        long estimatedEarning = totalViews * revenueRate(article.getType());
 
         ArticleStatDTO response = new ArticleStatDTO();
         response.setViews(safeInt(totalViews));
